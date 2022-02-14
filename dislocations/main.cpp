@@ -27,7 +27,7 @@ void init(unsigned char crystal[CS][CS], int n) {
     }
 }
 
-void log(unsigned char crystal[CS][CS], int n) {
+void print(unsigned char crystal[CS][CS], int n) {
     for (int i = 0; i < n; i++) {
         for (int j = 0; j < n; j++) {
             switch (crystal[i][j]) {
@@ -44,30 +44,64 @@ void log(unsigned char crystal[CS][CS], int n) {
         }
         cout << endl;
     }
-}
-
-unsigned char dis_type(unsigned char crystal[CS][CS], int dis_x[CS], int dis_y[CS], int k) {
-    return crystal[dis_x[k]][dis_y[k]];
+    cout << endl;
 }
 
 bool check_alive(unsigned char crystal[CS][CS], int n, int dis_x[CS], int dis_y[CS], int r) {
     bool alive = false;
     for (int k = 0; k < r && !alive; k++) {
-        if (dis_x[k] == 0 || dis_x[k] == n - 1 || dis_y[k] == 0 || dis_y[k] == n - 1) {
-            crystal[dis_x[k]][dis_y[k]] = 2;
+        auto x = dis_x[k];
+        auto y = dis_y[k];
+        if (x == 0 || x == n - 1 || y == 0 || y == n - 1) {
+            crystal[x][y] = 2;
         }
-        if (crystal[dis_x[k]][dis_y[k]]) {
+        // TODO: Add sticking for multiple dislocations
+        if (crystal[x][y] == 1) {
             alive = true;
         }
     }
     return alive;
 }
 
-//int simulate(unsigned char crystal[CS][CS], int n, int dis_x[CS], int dis_y[CS], int r) {
-//    for (int t = 0; check_alive(crystal, n, dis_x, dis_y, r); t++) {
-//
-//    }
-//}
+void move(unsigned char crystal[CS][CS], int n, int dis_x[CS], int dis_y[CS], int r) {
+    for (int k = 0; k < r; k++) {
+        auto x = dis_x[k];
+        auto y = dis_y[k];
+        if (crystal[x][y] == 2) {
+            continue;
+        }
+        crystal[x][y] = 0;
+
+        auto dir = (unsigned char) (distrib(generator) * 4);
+        switch (dir) {
+            case 0:
+                y--;
+                break;
+            case 1:
+                x++;
+                break;
+            case 2:
+                y++;
+                break;
+            case 3:
+                x--;
+                break;
+        }
+        dis_x[k] = x;
+        dis_y[k] = y;
+        crystal[x][y] = 1;
+        // TODO: Add crossing checking
+        // TODO: Add lazy moving
+    }
+}
+
+int simulate(unsigned char crystal[CS][CS], int n, int dis_x[CS], int dis_y[CS], int r) {
+    int t;
+    for (t = 0; check_alive(crystal, n, dis_x, dis_y, r); t++) {
+        move(crystal, n, dis_x, dis_y, r);
+    }
+    return t;
+}
 
 int main() {
     unsigned char crystal[CS][CS];
@@ -76,9 +110,10 @@ int main() {
 
     int dis_x[CS], dis_y[CS], num_dis = 1;
     generate_dis(crystal, crystal_size, dis_x, dis_y, num_dis);
-    check_alive(crystal, crystal_size, dis_x, dis_y, num_dis);
 
-    log(crystal, crystal_size);
+    auto steps = simulate(crystal, crystal_size, dis_x, dis_y, num_dis);
+    print(crystal, crystal_size);
+    cout << "Simulation ended with " << steps << " steps" << endl;
     return 0;
 }
 
