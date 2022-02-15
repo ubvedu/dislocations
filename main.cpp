@@ -1,10 +1,11 @@
 #include <iostream>
 #include <random>
 #include <chrono>
+#include <fstream>
 
 using namespace std;
 
-const int CS = 100;
+const int CS = 1000;
 
 default_random_engine generator(
         chrono::duration_cast<chrono::nanoseconds>(chrono::system_clock::now().time_since_epoch()).count()
@@ -72,8 +73,7 @@ void move(unsigned char crystal[CS][CS], int n, int dis_x[CS], int dis_y[CS], in
         }
         crystal[x][y] = 0;
 
-        auto dir = (unsigned char) (distrib(generator) * 4);
-        switch (dir) {
+        switch ((int) (distrib(generator) * 4)) {
             case 0:
                 y--;
                 break;
@@ -95,25 +95,49 @@ void move(unsigned char crystal[CS][CS], int n, int dis_x[CS], int dis_y[CS], in
     }
 }
 
-int simulate(unsigned char crystal[CS][CS], int n, int dis_x[CS], int dis_y[CS], int r) {
+int simulate(int crystal_size, int num_dislocations) {
+    unsigned char crystal[CS][CS];
+    init(crystal, crystal_size);
+
+    int dis_x[CS], dis_y[CS];
+    generate_dis(crystal, crystal_size, dis_x, dis_y, num_dislocations);
+
     int t;
-    for (t = 0; check_alive(crystal, n, dis_x, dis_y, r); t++) {
-        move(crystal, n, dis_x, dis_y, r);
+    for (t = 0; check_alive(crystal, crystal_size, dis_x, dis_y, num_dislocations); t++) {
+        move(crystal, crystal_size, dis_x, dis_y, num_dislocations);
     }
+
     return t;
 }
 
+double simulate_many(int crystal_size, int num_dislocations, int times) {
+    int sum_steps = 0;
+    for (int i = 0; i < times; i++) {
+        sum_steps += simulate(crystal_size, num_dislocations);
+    }
+    return ((double) sum_steps) / times;
+}
+
 int main() {
-    unsigned char crystal[CS][CS];
-    int crystal_size = 6;
-    init(crystal, crystal_size);
+    int times = 100;
+    ofstream file("../out/single.csv");
+    if (file.is_open()) {
+        file << "crystal size,mean steps" << endl;
 
-    int dis_x[CS], dis_y[CS], num_dis = 1;
-    generate_dis(crystal, crystal_size, dis_x, dis_y, num_dis);
+        for (int n = 1; n <= 1000; n++) {
+            auto start = chrono::system_clock::now();
 
-    auto steps = simulate(crystal, crystal_size, dis_x, dis_y, num_dis);
-    print(crystal, crystal_size);
-    cout << "Simulation ended with " << steps << " steps" << endl;
+            auto mean_steps = simulate_many(n, 1, times);
+
+            auto duration = chrono::duration_cast<chrono::milliseconds>(chrono::system_clock::now() - start);
+            cout << "Simulation with crystal size " << n << " ended in " << duration.count() << "ms" << endl;
+
+            file << n << "," << mean_steps << endl;
+        }
+    } else {
+        cout << "Unable to open file" << endl;
+    }
+    file.close();
     return 0;
 }
 
