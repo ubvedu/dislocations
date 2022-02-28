@@ -24,10 +24,10 @@ void generate_dis(
     }
 }
 
-void print(unsigned char crystal[N][N], unsigned short n) {
-    for (int i = 0; i < n; i++) {
+void print(unsigned char crystal[N][N], unsigned short m, unsigned short n) {
+    for (int i = 0; i < m; i++) {
         for (int j = 0; j < n; j++) {
-            switch (crystal[i][j]) {
+            switch (crystal[j][i]) {
                 case 0:
                     cout << ".";
                     break;
@@ -38,7 +38,7 @@ void print(unsigned char crystal[N][N], unsigned short n) {
                     cout << "x";
                     break;
                 default:
-                    cout << crystal[i][j];
+                    cout << crystal[j][i];
             }
             cout << " ";
         }
@@ -52,7 +52,8 @@ bool check_alive(
         unsigned short n,
         unsigned short dis_x[],
         unsigned short dis_y[],
-        unsigned r
+        unsigned r,
+        bool linear
 ) {
     bool alive = false;
     for (int k = 0; k < r; k++) {
@@ -61,7 +62,7 @@ bool check_alive(
         if (crystal[x][y] == 2) {
             continue;
         }
-        if (x == 0 || x == n - 1 || y == 0 || y == n - 1) {
+        if (x == 0 || x == n - 1 || (y == 0 || y == n - 1) && !linear) {
             crystal[x][y] = 2;
         } else if (crystal[x + 1][y] || crystal[x][y + 1] || crystal[x - 1][y] || crystal[x][y - 1]) {
             crystal[x][y] = 2;
@@ -73,7 +74,7 @@ bool check_alive(
     return alive;
 }
 
-void move(unsigned char crystal[N][N], unsigned short dis_x[], unsigned short dis_y[], unsigned r) {
+void move(unsigned char crystal[N][N], unsigned short dis_x[], unsigned short dis_y[], unsigned r, bool linear) {
     for (int k = 0; k < r; k++) {
         auto x = dis_x[k];
         auto y = dis_y[k];
@@ -81,18 +82,24 @@ void move(unsigned char crystal[N][N], unsigned short dis_x[], unsigned short di
             continue;
         }
         crystal[x][y] = 0;
-        switch ((int) (distrib(generator) * 4)) {
+        int dirs;
+        if (linear) {
+            dirs = 2;
+        } else {
+            dirs = 4;
+        }
+        switch ((int) (distrib(generator) * dirs)) {
             case 0:
-                y--;
-                break;
-            case 1:
                 x++;
                 break;
+            case 1:
+                x--;
+                break;
             case 2:
-                y++;
+                y--;
                 break;
             case 3:
-                x--;
+                y++;
                 break;
         }
         if (!crystal[x][y]) {
@@ -118,15 +125,19 @@ int simulate(
         unsigned short crystal_size,
         unsigned short dis_x[],
         unsigned short dis_y[],
-        unsigned num_dislocations
+        unsigned num_dislocations,
+        bool linear
 ) {
     clear_crystal(crystal, crystal_size);
     generate_dis(crystal, crystal_size, dis_x, dis_y, num_dislocations);
 
     int t;
-    for (t = 0; check_alive(crystal, crystal_size, dis_x, dis_y, num_dislocations); t++) {
-        move(crystal, dis_x, dis_y, num_dislocations);
+    for (t = 0; check_alive(crystal, crystal_size, dis_x, dis_y, num_dislocations, linear); t++) {
+        // print(crystal, 1, crystal_size);
+        move(crystal, dis_x, dis_y, num_dislocations, linear);
     }
+
+    // print(crystal, 1, crystal_size);
 
     return t;
 }
@@ -146,7 +157,7 @@ void run_single() {
             for (int i = 0; i < times; i++) {
                 dis_x[0] = (unsigned short) (distrib(generator) * n);
                 dis_y[0] = (unsigned short) (distrib(generator) * n);
-                sum_steps += simulate(crystal, n, dis_x, dis_y, 1);
+                sum_steps += simulate(crystal, n, dis_x, dis_y, 1, false);
             }
             auto mean_steps = sum_steps / (double) times;
 
@@ -159,6 +170,21 @@ void run_single() {
         cout << "Unable to open file" << endl;
     }
     file.close();
+}
+
+void init_x(unsigned  short dis_x[], unsigned short n) {
+    for (int x = 0; x < n; x++) {
+        dis_x[x] = x;
+    }
+}
+
+void shuffle_x(unsigned short dis_x[], unsigned short n) {
+    for (int i = 0; i < n; i++) {
+        auto j = (int) (distrib(generator) * n);
+        auto tmp = dis_x[i];
+        dis_x[i] = dis_x[j];
+        dis_x[j] = tmp;
+    }
 }
 
 void init_xy(unsigned short dis_x[], unsigned short dis_y[], unsigned short n) {
@@ -196,7 +222,7 @@ void run_multiple() {
             init_xy(dis_x, dis_y, n);
             shuffle_xy(dis_x, dis_y, n);
             auto r = (int) (distrib(generator) * n * n);
-            auto steps = simulate(crystal, n, dis_x, dis_y, r);
+            auto steps = simulate(crystal, n, dis_x, dis_y, r, false);
             file << n << "," << r << "," << steps << endl;
 
             auto end = chrono::system_clock::now();
@@ -213,7 +239,15 @@ void run_multiple() {
 int main() {
     cout << "random seed " << seed << endl;
 
-    run_single();
+    unsigned char crystal[N][N];
+    unsigned short dis_x[N];
+    unsigned short dis_y[N] = {0};
+    auto n = 40;
+    auto r = 5;
+    init_x(dis_x, n);
+    shuffle_x(dis_x, n);
+
+    simulate(crystal, n, dis_x, dis_y, r, true);
 
     return 0;
 }
